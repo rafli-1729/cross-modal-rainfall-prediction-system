@@ -4,6 +4,7 @@
 !data/
 !data/**/
 !.gitkeep
+!locations.csv
 
 # Models & embeddings
 models/*.pkl
@@ -16,7 +17,6 @@ __pycache__/
 env/
 .env
 .env.*
-
 
 # Jupyter
 .ipynb_checkpoints/
