@@ -2,6 +2,10 @@
 from warnings import filterwarnings
 filterwarnings('ignore')
 
+# logging
+import logging
+logger = logging.getLogger(__name__)
+
 # Core library
 import pandas as pd
 import numpy as np
@@ -16,15 +20,6 @@ from pathlib import Path
 # Defaults
 filterwarnings('ignore')
 np.set_printoptions(legacy='1.25')
-
-# Paths
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-print(PROJECT_ROOT)
-
-RAW_PATH = Path(PROJECT_ROOT/'data/raw')
-
-PROCESS_PATH = Path(PROJECT_ROOT/'data/process')
-MERGE_PATH = PROCESS_PATH/'merge'
 
 
 def convert_numeric(df: pd.DataFrame, columns: list[str]) -> list[str]:
@@ -55,16 +50,13 @@ def load_random_train_sample(train_root: Path, seed: int | None = None):
     match = re.search(r"(\d{4})", sample_path.name)
     year = match.group(1) if match else "unknown"
 
-    print(
-        f"Random train sample loaded\n"
-        f"Location : {location}\n"
-        f"Year     : {year}\n"
-        f"File     : {sample_path.name}\n"
-        f"Shape    : {df.shape}\n"
-        f"Info     :",
+    logger.info(
+        "Random train sample loaded | "
+        "Location=%s | Year=%s | File=%s | Shape=%s",
+        location, year, sample_path.name, df.shape
     )
 
-    df.info()
+    logger.debug("DataFrame info:\n%s", df.info(buf=None))
     return df
 
 
@@ -119,7 +111,7 @@ def merge_each_city(
 
     if not city_folders:
         if verbose:
-            print("[WARN] No city folders found.")
+            logger.warning("No city folders found.")
         return
 
     max_city_len = max(len(c) for c in city_folders)
@@ -129,7 +121,7 @@ def merge_each_city(
     processed_cities = 0
 
     if verbose:
-        print(f"[INFO] Processing {len(city_folders)} city folders...\n")
+        logger.info("Processing %d city folders...\n", len(city_folders))
 
     for city in city_folders:
         city_path = os.path.join(input_root, city)
@@ -137,7 +129,7 @@ def merge_each_city(
 
         if not csv_files:
             if verbose:
-                print(f"[WARN] {city:<{max_city_len}} | no CSV files found")
+                logger.warning("%-*s | no CSV files found", max_city_len, city)
             continue
 
         dfs = []
@@ -159,21 +151,29 @@ def merge_each_city(
         processed_cities += 1
 
         if verbose:
-            print(
-                f"[OK] {city:<{max_city_len}} | "
-                f"{files_count:>4} files | "
-                f"{rows_count:>9,} rows | "
-                f"{merged_df.shape[1]:>2} cols"
+            logger.info(
+                "%-*s | %4d files | %9d rows | %2d cols",
+                max_city_len,
+                city,
+                files_count,
+                rows_count,
+                merged_df.shape[1],
             )
 
     if verbose:
-        print("\n" + "-" * (max_city_len + 45))
-        print(
-            f"[SUMMARY] Cities processed : {processed_cities}\n"
-            f"[SUMMARY] Total files      : {total_files:,}\n"
-            f"[SUMMARY] Total rows       : {total_rows:,}"
+        sep = "-" * (max_city_len + 45)
+        logger.info(
+            "\n%s\n"
+            "[SUMMARY] Cities processed : %d\n"
+            "[SUMMARY] Total files      : %d\n"
+            "[SUMMARY] Total rows       : %d\n"
+            "%s",
+            sep,
+            processed_cities,
+            total_files,
+            total_rows,
+            sep,
         )
-        print("-" * (max_city_len + 45))
 
 
 def merge_all_cities(input_root: str, output_dir: str) -> pd.DataFrame:
@@ -199,6 +199,15 @@ def merge_all_cities(input_root: str, output_dir: str) -> pd.DataFrame:
 
 
 if __name__ == '__main__':
+    # Paths
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
+    print(PROJECT_ROOT)
+
+    RAW_PATH = Path(PROJECT_ROOT/'data/raw')
+
+    PROCESS_PATH = Path(PROJECT_ROOT/'data/process')
+    MERGE_PATH = PROCESS_PATH/'merge'
+
     train_sample = load_random_train_sample(
         RAW_PATH / "train",
     )

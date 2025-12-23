@@ -1,0 +1,16 @@
+[paths]
+data_dir = "data"
+raw_dir = "data/raw"
+process_dir = "data/process"
+clean_dir = "data/clean"
+models_dir = "models"
+
+[api]
+host = "0.0.0.0"
+port = 8000
+
+[weather]
+timezone = "Asia/Singapore"
+
+[features]
+rolling_windows = [30, 60, 120]

@@ -5,6 +5,7 @@ filterwarnings('ignore')
 # Progress library
 from tqdm import tqdm
 import logging
+logger = logging.getLogger(__name__)
 
 # Core library
 import pandas as pd
@@ -24,12 +25,6 @@ import pytesseract
 
 # Adjust here
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    datefmt="%H:%M:%S"
-)
 
 def log(msg, verbose=True, level="info"):
     if not verbose:

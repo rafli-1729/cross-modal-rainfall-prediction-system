@@ -14,8 +14,10 @@ import numpy as np
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-CLEAN_PATH = Path(PROJECT_ROOT/'data/clean')
-INFERENCE_PATH = Path(PROJECT_ROOT/'/data/inference/')
+
+CLEAN_PATH = PROJECT_ROOT/'data/clean'
+INFERENCE_PATH = PROJECT_ROOT/'data/inference/'
+MODEL_PATH = PROJECT_ROOT/'models'
 
 import pandas as pd
 import numpy as np
@@ -119,3 +121,10 @@ scores = cross_val_score(
 
 print("MSE per fold:", -scores)
 print("Mean MSE:", -scores.mean())
+
+pipe.fit(X, y)
+
+import joblib
+
+joblib.dump(pipe, MODEL_PATH/'xgb_model.pkl')
+print('XGB Pipeline succesfully saved!')
