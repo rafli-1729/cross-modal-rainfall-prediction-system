@@ -1,15 +1,49 @@
-# ui/app.py
-
 import streamlit as st
 import requests
 import json
+import base64
+
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.config import VALID_LOCATIONS
+
+API_BASE = "http://localhost:8000"
 
 def today_sg():
     return datetime.now(ZoneInfo("Asia/Singapore")).date()
 
-API_BASE = "http://localhost:8000"
+def set_bg(image_file):
+    with open(image_file, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
+
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{encoded}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+set_bg("assets/bg.webp")
+
+def load_css(path: str):
+    with open(path) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+load_css("assets/styles.css")
 
 st.set_page_config(
     page_title="Rainfall Forecasting App",
@@ -18,49 +52,59 @@ st.set_page_config(
 
 st.title("🌧️ Rainfall Forecasting & Evaluation")
 
-# ======================================================
-# MODE SELECTION
-# ======================================================
+# ================================= MODE SELECTION =================================
 
 mode = st.selectbox(
     "Select Mode",
-    ["Random (Scenario)", "Forecast", "Evaluation"]
+    ["Random Prediction", "Forecast", "Evaluation"]
 )
 
 st.divider()
 
-# ======================================================
-# COMMON INPUTS
-# ======================================================
+# ================================= COMMON INPUTS =================================
 
-location = st.text_input("Location", value="Admiralty")
-date = st.date_input("Date")
+col1, col2= st.columns(2)
+
+with col1:
+    location = st.text_input("Location", value="Admiralty")
+    location = location.replace(" ", "_").title()
+
+    is_valid_location = location in VALID_LOCATIONS
+
+    if not is_valid_location:
+        st.error("Invalid location. Please select a valid location.")
+
+with col2:
+    date = st.date_input("Date")
 
 date_str = date.strftime("%Y-%m-%d")
 
-# ======================================================
-# RANDOM MODE
-# ======================================================
+# ================================= RANDOM MODE =================================
 
-if mode == "Random (Scenario)":
+if mode == "Random Prediction":
     st.subheader("Scenario Inputs")
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        mean_temp = st.number_input("Mean Temperature (°C)", 0.0, 40.0, 27.0)
+        r30 = st.number_input("Highest 30-min Rainfall (mm)", 0.0, 200.0, 1.0, step=0.5)
         min_temp = st.number_input("Min Temperature (°C)", 0.0, 40.0, 24.0)
-        mean_wind = st.number_input("Mean Wind Speed (km/h)", 0.0, 50.0, 8.0)
 
     with col2:
+        r60 = st.number_input("Highest 60-min Rainfall (mm)", 0.0, 300.0, 1.0, step=0.5)
         max_temp = st.number_input("Max Temperature (°C)", 0.0, 40.0, 30.0)
+
+    with col3:
+        r120 = st.number_input("Highest 120-min Rainfall (mm)", 0.0, 500.0, 1.0, step=0.5)
+        mean_temp = st.number_input("Mean Temperature (°C)", 0.0, 40.0, 27.0)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        mean_wind = st.number_input("Mean Wind Speed (km/h)", 0.0, 50.0, 8.0)
+    with col2:
         max_wind = st.number_input("Max Wind Speed (km/h)", 0.0, 100.0, 15.0)
 
-    r30 = st.number_input("Highest 30-min Rainfall (mm)", 0.0, 200.0, 10.0)
-    r60 = st.number_input("Highest 60-min Rainfall (mm)", 0.0, 300.0, 18.0)
-    r120 = st.number_input("Highest 120-min Rainfall (mm)", 0.0, 500.0, 25.0)
-
-    if st.button("Run Scenario"):
+    if st.button("Run Scenario", use_container_width=True):
         payload = {
             "features": {
                 "location": location,
@@ -86,10 +130,7 @@ if mode == "Random (Scenario)":
             st.subheader("Raw response:")
             st.code(res.text)
 
-
-# ======================================================
-# FORECAST MODE
-# ======================================================
+# ================================= FORECAST MODE =================================
 
 elif mode == "Forecast":
 
@@ -112,7 +153,7 @@ elif mode == "Forecast":
     if not is_valid:
         st.warning(error_msg)
 
-    if st.button("Run Forecast"):
+    if st.button("Run Forecast", use_container_width=True):
         payload = {
             "location": location,
             "date": date_str
@@ -127,10 +168,7 @@ elif mode == "Forecast":
             st.subheader("Raw response:")
             st.code(res.text)
 
-
-# ======================================================
-# EVALUATION MODE
-# ======================================================
+# ================================= EVALUATION MODE =================================
 
 elif mode == "Evaluation":
 
