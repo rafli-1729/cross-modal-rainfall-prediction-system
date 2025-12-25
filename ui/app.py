@@ -1,87 +1,190 @@
 import streamlit as st
 import requests
-import json
-import base64
+from datetime import timedelta, datetime
+import pandas as pd
+import altair as alt
 
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-
-import sys
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
+from utils import (
+    today_sg,
+    set_bg,
+    render_template,
+    load_css,
+    evaluate_prediction,
+    rainfall_intensity,
+    forecast_insight_text,
+    scenario_insight_text
+)
 
 from src.config import VALID_LOCATIONS
 
-API_BASE = "http://localhost:8000"
+@st.cache_data(show_spinner=True)
+def load_raw_data():
+    df = pd.read_csv("data/clean/train.csv")
+    df["date"] = pd.to_datetime(df["date"])
+    return df
 
-def today_sg():
-    return datetime.now(ZoneInfo("Asia/Singapore")).date()
-
-def set_bg(image_file):
-    with open(image_file, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode()
-
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/png;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
+@st.cache_data(show_spinner=True)
+def build_weekly_aggregates(df):
+    return (
+        df
+        .assign(year=df["date"].dt.year)
+        .set_index("date")
+        .groupby(["location", "year"])
+        .resample("W")
+        .mean()
+        .reset_index()
     )
 
-set_bg("assets/bg.webp")
 
-def load_css(path: str):
-    with open(path) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+# =============================== CONFIG ===============================
 
-load_css("assets/styles.css")
+API_BASE = "http://localhost:8000"
 
 st.set_page_config(
     page_title="Rainfall Forecasting App",
-    layout="centered"
+    layout="wide",
 )
 
-st.title("🌧️ Rainfall Forecasting & Evaluation")
+# set_bg("assets/bg.webp")
+load_css("assets/styles.css")
 
-# ================================= MODE SELECTION =================================
+# =============================== HEADER ===============================
 
-mode = st.selectbox(
-    "Select Mode",
-    ["Random Prediction", "Forecast", "Evaluation"]
-)
+st.title("🌧️ Rainfall Forecasting Dashboard")
+st.caption("Monitoring rainfall patterns and interactively evaluating prediction models.")
 
 st.divider()
 
-# ================================= COMMON INPUTS =================================
+# =============================== DASHBOARD (DUMMY) ===============================
 
-col1, col2= st.columns(2)
+st.subheader("Overview")
 
+kpi1, kpi2, kpi3 = st.columns(3)
+kpi1.metric("Locations Covered", "25")
+kpi2.metric("Evaluation Records", "12,840")
+kpi3.metric("Model Type", "XGBoost")
+
+st.markdown("### Recent Rainfall Trend (Dummy)")
+
+df = pd.DataFrame({
+    "Day": range(7),
+    "Observed": [2, 5, 0, 10, 3, 6, 1],
+    "Predicted": [1, 4, 2, 7, 4, 5, 2]
+}).melt("Day", var_name="Type", value_name="Rainfall")
+
+with st.spinner("Initializing dashboard..."):
+    df = load_raw_data()
+    weekly = build_weekly_aggregates(df)
+
+available_locations = sorted(weekly["location"].unique())
+available_years = sorted(weekly["year"].unique())
+
+col1, col2 = st.columns(2)
 with col1:
-    location = st.text_input("Location", value="Admiralty")
-    location = location.replace(" ", "_").title()
+    selected_location = st.selectbox(
+        "Location",
+        available_locations
+    )
 
-    is_valid_location = location in VALID_LOCATIONS
+with col2:
+    selected_year = st.selectbox(
+        "Year",
+        available_years,
+        index=len(available_years) - 1
+    )
 
-    if not is_valid_location:
-        st.error("Invalid location. Please select a valid location.")
+filtered = weekly[
+    (weekly["location"] == selected_location) &
+    (weekly["year"] == selected_year)
+]
+
+if filtered.empty:
+    st.info("No data available for this selection.")
+    st.stop()
+
+plot_df = filtered.melt(
+    id_vars=["date"],
+    value_vars=["observed_mm", "predicted_mm"],
+    var_name="Type",
+    value_name="Rainfall"
+)
+
+plot_df["Type"] = plot_df["Type"].map({
+    "observed_mm": "Observed",
+    "predicted_mm": "Predicted"
+})
+
+chart = (
+    alt.Chart(plot_df)
+    .mark_line(interpolate="monotone", strokeWidth=2)
+    .encode(
+        x=alt.X(
+            "date:T",
+            axis=alt.Axis(
+                title=None,
+                labelColor="#64748b"
+            )
+        ),
+        y=alt.Y(
+            "Rainfall:Q",
+            axis=alt.Axis(
+                title="mm",
+                labelColor="#64748b",
+                gridColor="#e5e7eb",
+                gridOpacity=0.6
+            )
+        ),
+        color=alt.Color(
+            "Type:N",
+            scale=alt.Scale(
+                domain=["Observed", "Predicted"],
+                range=["#0f172a", "#60a5fa"]
+            ),
+            legend=alt.Legend(
+                orient="bottom",
+                title=None
+            )
+        ),
+        strokeDash=alt.condition(
+            alt.datum.Type == "Predicted",
+            alt.value([4, 4]),
+            alt.value([1, 0])
+        )
+    )
+    .properties(height=260)
+    .configure_view(strokeWidth=0)
+    .configure(background="transparent")
+)
+
+st.altair_chart(chart, use_container_width=True)
+
+st.divider()
+
+# =============================== TRY THE MODEL (BOTTOM SECTION) ===============================
+
+st.markdown("## Try the Model")
+st.caption("Test the rainfall prediction model using different modes and inputs.")
+
+mode = st.selectbox(
+    "",
+    ["Evaluation", "Forecast", "Random Scenario"]
+)
+
+# ================================== COMMON INPUTS ==================================
+
+col1, col2 = st.columns(2)
+with col1:
+    location = st.selectbox("Location", VALID_LOCATIONS)
 
 with col2:
     date = st.date_input("Date")
 
 date_str = date.strftime("%Y-%m-%d")
+date_formatted = date.strftime("%d %b %Y")
 
-# ================================= RANDOM MODE =================================
+# ================================== FORECAST TAB ==================================
 
-if mode == "Random Prediction":
+if mode == 'Random Scenario':
     st.subheader("Scenario Inputs")
 
     col1, col2, col3 = st.columns(3)
@@ -104,7 +207,7 @@ if mode == "Random Prediction":
     with col2:
         max_wind = st.number_input("Max Wind Speed (km/h)", 0.0, 100.0, 15.0)
 
-    if st.button("Run Scenario", use_container_width=True):
+    if st.button("Run Scenario", use_container_width=True, type='primary'):
         payload = {
             "features": {
                 "location": location,
@@ -120,19 +223,34 @@ if mode == "Random Prediction":
             }
         }
 
-        res = requests.post(f"{API_BASE}/random", json=payload)
-        st.write(f"Status code: {res.status_code}")
+        result_slot = st.empty()
+        with result_slot:
+            render_template("assets/templates/loading.html")
 
-        try:
-            st.json(res.json())
-        except Exception:
-            st.error("API did not return valid JSON")
-            st.subheader("Raw response:")
-            st.code(res.text)
+        res = requests.post(f"{API_BASE}/random", json=payload)
+
+        data = res.json()
+        rain_mm = float(data["prediction"]["daily_rainfall_mm"])
+
+        level, label = rainfall_intensity(rain_mm)
+        insight = scenario_insight_text(rain_mm, level)
+
+        scenario_inputs = {
+            "Feature Source": data["meta"]["feature_source"],
+        }
+
+        with result_slot:
+            render_template(
+                "assets/templates/random_result.html",
+                rainfall_mm=f"{rain_mm:.1f}",
+                intensity_level=level,
+                intensity_label=label,
+                location=data["input"]["location"]
+            )
 
 # ================================= FORECAST MODE =================================
 
-elif mode == "Forecast":
+if mode == 'Forecast':
 
     is_valid = True
     error_msg = None
@@ -153,25 +271,39 @@ elif mode == "Forecast":
     if not is_valid:
         st.warning(error_msg)
 
-    if st.button("Run Forecast", use_container_width=True):
+    if st.button("Forecast", disabled=not is_valid, use_container_width=True, type='primary'):
         payload = {
             "location": location,
             "date": date_str
         }
-        res = requests.post(f"{API_BASE}/forecast", json=payload)
-        st.write(f"Status code: {res.status_code}")
 
-        try:
-            st.json(res.json())
-        except Exception:
-            st.error("API did not return valid JSON")
-            st.subheader("Raw response:")
-            st.code(res.text)
+        result_slot = st.empty()
+        with result_slot:
+            render_template("assets/templates/loading.html")
+
+        res = requests.post(f"{API_BASE}/forecast", json=payload)
+
+        data = res.json()
+        rain_mm = float(data["prediction"]["daily_rainfall_mm"])
+
+        level, label = rainfall_intensity(rain_mm)
+        insight = forecast_insight_text(rain_mm, level)
+
+        with result_slot:
+            render_template(
+                "assets/templates/forecast_result.html",
+                rainfall_mm=f"{rain_mm:.1f}",
+                intensity_level=level,
+                intensity_label=label,
+                insight_text=insight,
+                location=data["input"]["location"],
+                date=date_formatted
+            )
+
 
 # ================================= EVALUATION MODE =================================
 
-elif mode == "Evaluation":
-
+if mode == 'Evaluation':
     is_valid = True
     error_msg = None
 
@@ -188,17 +320,44 @@ elif mode == "Evaluation":
     if not is_valid:
         st.warning(error_msg)
 
-    if st.button("Run Evaluation", disabled=not is_valid):
+    if st.button("Run Evaluation", disabled=not is_valid, use_container_width=True, type='primary'):
         payload = {
             "location": location,
             "date": selected_date.strftime("%Y-%m-%d")
         }
 
-        res = requests.post(f"{API_BASE}/evaluate", json=payload)
+        result_slot = st.empty()
+        with result_slot:
+            render_template("assets/templates/loading.html")
 
-        st.write(f"Status code: {res.status_code}")
-        try:
-            st.json(res.json())
-        except Exception:
-            st.error("API did not return valid JSON")
-            st.code(res.text)
+        res = requests.post(f"{API_BASE}/evaluate", json=payload)
+        data = res.json()
+
+        mode = data["mode"]
+        location = data["input"]["location"]
+        date = data["input"]["date"]
+        pred_mm = data["prediction"]["daily_rainfall_mm"]
+        obs_mm = data["comparison"]["observed_daily_rainfall_mm"]
+        error_mm = data["comparison"]["error_mm"]
+
+        with result_slot:
+            if data["comparison"] is None:
+                render_template(
+                    "assets/templates/evaluation_unavailable.html",
+                    location=location,
+                    date=date
+                )
+            else:
+                eval_result = evaluate_prediction(pred_mm, obs_mm)
+                render_template(
+                    "assets/templates/evaluate_result.html",
+                    rainfall_mm=f"{eval_result['predicted_mm']:.1f}",
+                    obs_rainfall_mm=f"{eval_result['observed_mm']:.1f}",
+                    error_pct=f"{eval_result['relative_error_pct']:.1f}",
+                    error_level=eval_result["severity"],
+                    insight_text=eval_result["insight_text"],
+                    location=location,
+                    date=date_formatted
+                )
+
+render_template("assets/footer.html")
