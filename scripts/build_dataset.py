@@ -44,8 +44,8 @@ def main():
 
     train = build_training_dataset(
         features_dir=PROCESS_DIR/'merge'/'train',
-        targets_dir=PROCESS_DIR/'extract',
-        output_csv=PROCESS_DIR/'train.csv',
+        targets_dir=PROCESS_DIR/'extract_1226',
+        output_csv=PROCESS_DIR/'train_1226.csv',
         corrupt_col=METEOROGICAL_COLUMNS+RAIN_EXTREME_COLUMNS,
         verbose=True
     )
@@ -71,7 +71,7 @@ def main():
 
     merge_dataset(
         train, external_features, 'date',
-        save_path=CLEAN_DIR/'train.csv'
+        save_path=CLEAN_DIR/'train_1226.csv'
     )
     merge_dataset(
         test, external_features, 'date',

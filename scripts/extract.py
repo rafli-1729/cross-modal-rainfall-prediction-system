@@ -13,7 +13,7 @@ logging.basicConfig(
 def main():
     process_all_locations(
         input_root=RAW_DIR/"Train",
-        output_dir=PROCESS_DIR/"extract",
+        output_dir=PROCESS_DIR/"extract_1226",
         verbose=True
     )
 
