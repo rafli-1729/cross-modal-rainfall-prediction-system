@@ -4,6 +4,8 @@ raw_dir         = "data/raw"
 process_dir     = "data/process"
 clean_dir       = "data/clean"
 inference_dir   = "data/inference"
+template_dir    = "assets/templates"
+style_dir       = "assets/styles"
 models_dir      = "models"
 
 [api]

@@ -7,8 +7,12 @@ from datetime import datetime, timedelta
 import re
 import base64
 
+import json
+import uuid
+
 import sys
 from pathlib import Path
+from streamlit.components.v1 import html
 
 import streamlit as st
 
@@ -57,9 +61,89 @@ def render_template(path: str, **kwargs):
     st.markdown(html, unsafe_allow_html=True)
 
 
-def load_css(path: str):
-    with open(path) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+def render_kpi_html(path: str, height: int = 220, **kwargs):
+    template = Path(path).read_text()
+
+    for key, value in kwargs.items():
+        template = re.sub(
+            rf"\{{\{{\s*{key}\s*\}}\}}",
+            str(value),
+            template
+        )
+
+    html(
+        template,
+        height=height,
+        scrolling=False
+    )
+
+
+def render_vega_chart(chart, insight_html: str, height=460):
+    spec = chart.to_dict()
+    spec["width"] = "container"
+    spec["autosize"] = {"type": "fit", "contains": "padding"}
+
+    chart_id = f"chart_{uuid.uuid4().hex}"
+
+    html(
+        f"""
+        <div class="chart-js-card">
+            <div id="{chart_id}" style="width: 100%;"></div>
+
+            <div class="chart-insight">
+                {insight_html}
+            </div>
+        </div>
+
+        <style>
+        .chart-js-card {{
+            font-family: -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", Roboto, Helvetica,
+                 Arial, sans-serif;
+            background: rgba(238,242,255,1);
+            border-radius: 24px;
+            padding: 24px 28px 20px 28px;
+            width: 95%;
+        }}
+
+        .chart-insight {{
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(15,23,42,0.15);
+            font-size: 14px;
+            color: #334155;
+            line-height: 1.55;
+        }}
+
+        .chart-insight b {{
+            color: #0f172a;
+            font-weight: 600;
+        }}
+        </style>
+
+        <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+
+        <script>
+        vegaEmbed("#{chart_id}", {json.dumps(spec)}, {{
+            actions: false,
+            renderer: "svg"
+        }});
+        </script>
+        """,
+        height=height,
+        scrolling=False
+    )
+
+
+def load_css(folder: str):
+    css = ""
+
+    for css_file in sorted(Path(folder).glob("*.css")):
+        css += css_file.read_text() + "\n"
+
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 
 def is_valid_location(location: str) -> bool:
