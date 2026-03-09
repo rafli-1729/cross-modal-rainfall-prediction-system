@@ -25,12 +25,12 @@ _model = load_model(model_path=config.paths.models/'cv_model_v2.pkl')
 
 # ===================================== LOAD EXTERNAL FEATURES ONCE =====================================
 
-external_df = pd.read_csv(config.paths.clean/'external_features.csv')
-train = pd.read_csv(config.paths.processed/'train.csv')
-test = pd.read_csv(config.paths.processed/'test.csv')
+# external_df = pd.read_csv(config.paths.clean/'external_features.csv')
+# train = pd.read_csv(config.paths.processed/'train.csv')
+# test = pd.read_csv(config.paths.processed/'test.csv')
 
-train_min_date = train["date"].min()
-train_max_date = train["date"].max()
+# train_min_date = train["date"].min()
+# train_max_date = train["date"].max()
 
 # ===================================== REQUEST SCHEMAS =====================================
 
@@ -71,15 +71,15 @@ def forecast_mode(req: ForecastRequest):
     )
 
 
-@app.post("/evaluate", response_model=PredictionResponse)
-def evaluation_mode(req: EvaluationRequest):
-    return run_evaluation_mode(
-        model=_model,
-        location=req.location,
-        date=req.date,
-        train_df=train,
-        test_df=test
-    )
+# @app.post("/evaluate", response_model=PredictionResponse)
+# def evaluation_mode(req: EvaluationRequest):
+#     return run_evaluation_mode(
+#         model=_model,
+#         location=req.location,
+#         date=req.date,
+#         train_df=train,
+#         test_df=test
+#     )
 
 @app.get("/validity")
 def get_validity():

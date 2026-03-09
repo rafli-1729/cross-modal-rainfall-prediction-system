@@ -351,7 +351,7 @@ with col2:
 with col3:
     mode = st.selectbox(
         "Select Mode",
-        ["Evaluation", "Forecast", "Random Scenario"],
+        ["Forecast", "Random Scenario"],
     )
 
 date_str = date.strftime("%Y-%m-%d")
@@ -476,61 +476,61 @@ if mode == 'Forecast':
 
 # ================================= EVALUATION MODE =================================
 
-if mode == 'Evaluation':
-    is_valid = True
-    error_msg = None
+# if mode == 'Evaluation':
+#     is_valid = True
+#     error_msg = None
 
-    today = today_sg()
-    selected_date = date
+#     today = today_sg()
+#     selected_date = date
 
-    if selected_date >= today:
-        is_valid = False
-        error_msg = (
-            "Evaluation requires observed data. "
-            "Please select a date before today (SGT)."
-        )
+#     if selected_date >= today:
+#         is_valid = False
+#         error_msg = (
+#             "Evaluation requires observed data. "
+#             "Please select a date before today (SGT)."
+#         )
 
-    if not is_valid:
-        st.warning(error_msg)
+#     if not is_valid:
+#         st.warning(error_msg)
 
-    if st.button("Evaluate", disabled=not is_valid, width=1100, type='primary'):
-        payload = {
-            "location": location,
-            "date": selected_date.strftime("%Y-%m-%d")
-        }
+#     if st.button("Evaluate", disabled=not is_valid, width=1100, type='primary'):
+#         payload = {
+#             "location": location,
+#             "date": selected_date.strftime("%Y-%m-%d")
+#         }
 
-        result_slot = st.empty()
-        with result_slot:
-            st.markdown(load_html(config.paths.templates/'loading.html'), unsafe_allow_html=True)
+#         result_slot = st.empty()
+#         with result_slot:
+#             st.markdown(load_html(config.paths.templates/'loading.html'), unsafe_allow_html=True)
 
-        res = requests.post(f"{API_BASE}/evaluate", json=payload)
-        data = res.json()
+#         res = requests.post(f"{API_BASE}/evaluate", json=payload)
+#         data = res.json()
 
-        mode = data["mode"]
-        location = data["input"]["location"]
-        date = data["input"]["date"]
-        pred_mm = data["prediction"]["daily_rainfall_mm"]
-        obs_mm = data["comparison"]["observed_daily_rainfall_mm"]
-        error_mm = data["comparison"]["error_mm"]
+#         mode = data["mode"]
+#         location = data["input"]["location"]
+#         date = data["input"]["date"]
+#         pred_mm = data["prediction"]["daily_rainfall_mm"]
+#         obs_mm = data["comparison"]["observed_daily_rainfall_mm"]
+#         error_mm = data["comparison"]["error_mm"]
 
-        with result_slot:
-            if data["comparison"] is None:
-                st.markdown(load_html(
-                    config.paths.templates/"evaluation_unavailable.html",
-                    location=location,
-                    date=date
-                ), unsafe_allow_html=True)
-            else:
-                eval_result = evaluate_prediction(pred_mm, obs_mm)
-                st.markdown(load_html(
-                    config.paths.templates/"evaluate_result.html",
-                    rainfall_mm=f"{eval_result['predicted_mm']:.1f}",
-                    obs_rainfall_mm=f"{eval_result['observed_mm']:.1f}",
-                    error_pct=f"{eval_result['relative_error_pct']:.1f}",
-                    error_level=eval_result["severity"],
-                    insight_text=eval_result["insight_text"],
-                    location=location,
-                    date=date_formatted
-                ), unsafe_allow_html=True)
+#         with result_slot:
+#             if data["comparison"] is None:
+#                 st.markdown(load_html(
+#                     config.paths.templates/"evaluation_unavailable.html",
+#                     location=location,
+#                     date=date
+#                 ), unsafe_allow_html=True)
+#             else:
+#                 eval_result = evaluate_prediction(pred_mm, obs_mm)
+#                 st.markdown(load_html(
+#                     config.paths.templates/"evaluate_result.html",
+#                     rainfall_mm=f"{eval_result['predicted_mm']:.1f}",
+#                     obs_rainfall_mm=f"{eval_result['observed_mm']:.1f}",
+#                     error_pct=f"{eval_result['relative_error_pct']:.1f}",
+#                     error_level=eval_result["severity"],
+#                     insight_text=eval_result["insight_text"],
+#                     location=location,
+#                     date=date_formatted
+#                 ), unsafe_allow_html=True)
 
 st.markdown(load_html(assets_dir/"footer.html"), unsafe_allow_html=True)
