@@ -13,7 +13,6 @@
 
 
 # Models & embeddings
-models/*.pkl
 embeddings/
 
 # Python

@@ -299,7 +299,7 @@ if not daily_df["cv_predicted_mm"].isna().all():
 
     payload_error = {
         "dates": weekly_df["date"].dt.strftime("%Y-%m-%d").tolist(),
-        "bias": (weekly_df["observed_mm"] - weekly_df["extracted_mm"]).tolist()
+        "bias": (weekly_df["observed_mm"] - weekly_df["cv_predicted_mm"]).tolist()
     }
 
     render_component(
@@ -312,50 +312,11 @@ if not daily_df["cv_predicted_mm"].isna().all():
         SUBTITLE=f"{selected_location} • {selected_year}"
     )
 
-    p90 = weekly_df["extracted_mm"].quantile(0.9)
-
-    extreme_df = daily_df[daily_df["extracted_mm"] >= p90]
-    payload_extreme = build_timeseries_payload(
-        extreme_df,
-        series_map={
-            "Extreme Error": "abs_error"
-        }
-    )
-
-    payload_dist = {
-        "values": daily_df["abs_error"]
-            .dropna()
-            .astype(float)
-            .tolist()
-    }
-
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        render_component(
-            html_path=assets_dir / "chart/error.html",
-            css_path=assets_dir / "chart/style.css",
-            js_path=assets_dir / "chart/extreme.js",
-            height=320,
-            PAYLOAD_JSON=json.dumps(payload_extreme),
-            TITLE="Daily Extreme Error",
-            SUBTITLE=f"{selected_location} • {selected_year}"
-        )
-
-    with col2:
-        render_component(
-            html_path=assets_dir / "chart/error_dist.html",
-            css_path=assets_dir / "chart/style.css",
-            js_path=assets_dir / "chart/error_dist.js",
-            height=320,
-            PAYLOAD_JSON=json.dumps(payload_dist),
-            TITLE="Daily Error Distribution",
-            SUBTITLE=f"{selected_location} • {selected_year}"
-        )
 else:
     payload_ts = build_timeseries_payload(
         weekly_df,
         series_map={
-            "Observed": "observed_mm",
+            "Observed" : "observed_mm",
             "Extracted": "extracted_mm",
             "Predicted": "cv_predicted_mm",
         }

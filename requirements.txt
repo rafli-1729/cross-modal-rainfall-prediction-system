@@ -6,3 +6,5 @@ seaborn
 scikit-learn
 lightgbm
 xgboost
+dotenv
+duckdb
